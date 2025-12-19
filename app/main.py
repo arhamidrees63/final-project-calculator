@@ -14,11 +14,18 @@ from sqlalchemy.orm import Session
 import uvicorn
 
 from app.auth.dependencies import get_current_active_user
+from app.auth.jwt import get_current_user as get_current_user_db  # ✅ DB-backed user
 from app.models.calculation import Calculation
 from app.models.user import User
 from app.schemas.calculation import CalculationBase, CalculationResponse, CalculationUpdate
 from app.schemas.token import TokenResponse
-from app.schemas.user import UserCreate, UserResponse, UserLogin
+from app.schemas.user import (
+    UserCreate,
+    UserResponse,
+    UserLogin,
+    UserUpdate,
+    PasswordUpdate,
+)
 from app.database import Base, get_db, engine
 
 
@@ -36,46 +43,55 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
 # Mount the static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Set up Jinja2 templates directory
 templates = Jinja2Templates(directory="templates")
 
-# Home page route
+# ------------------------------------------------------------------------------
+# Web Pages
+# ------------------------------------------------------------------------------
+
 @app.get("/", response_class=HTMLResponse, tags=["web"])
 def read_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Login page route
 @app.get("/login", response_class=HTMLResponse, tags=["web"])
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-# Registration page route
 @app.get("/register", response_class=HTMLResponse, tags=["web"])
 def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
-
-# Dashboard page Route
 
 @app.get("/dashboard", response_class=HTMLResponse, tags=["web"])
 def dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
+# ✅ NEW: Profile page
+@app.get("/profile", response_class=HTMLResponse, tags=["web"])
+def profile_page(request: Request):
+    return templates.TemplateResponse("profile.html", {"request": request})
+
+
 # ------------------------------------------------------------------------------
 # Health Endpoint
 # ------------------------------------------------------------------------------
+
 @app.get("/health", tags=["health"])
 def read_health():
     return {"status": "ok"}
 
+
 # ------------------------------------------------------------------------------
 # User Registration Endpoint
 # ------------------------------------------------------------------------------
+
 @app.post(
-    "/auth/register", 
-    response_model=UserResponse, 
+    "/auth/register",
+    response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     tags=["auth"]
 )
@@ -91,9 +107,11 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+
 # ------------------------------------------------------------------------------
 # User Login Endpoints
 # ------------------------------------------------------------------------------
+
 @app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
 def login_json(user_login: UserLogin, db: Session = Depends(get_db)):
     """Login with JSON payload"""
@@ -145,10 +163,68 @@ def login_form(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
         "token_type": "bearer"
     }
 
+
+# ------------------------------------------------------------------------------
+# ✅ Final Project Feature: Profile + Password Change
+# ------------------------------------------------------------------------------
+
+@app.get("/users/me", response_model=UserResponse, tags=["users"])
+async def read_me(current_user: User = Depends(get_current_user_db)):
+    return current_user
+
+
+@app.put("/users/me", response_model=UserResponse, tags=["users"])
+async def update_me(
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_db)
+):
+    # Username duplicate check (only if provided and changed)
+    if payload.username and payload.username != current_user.username:
+        exists = db.query(User).filter(User.username == payload.username).first()
+        if exists:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        current_user.username = payload.username
+
+    # Email duplicate check (only if provided and changed)
+    if payload.email and payload.email != current_user.email:
+        exists = db.query(User).filter(User.email == payload.email).first()
+        if exists:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        current_user.email = payload.email
+
+    # Optional name updates
+    if payload.first_name:
+        current_user.first_name = payload.first_name
+    if payload.last_name:
+        current_user.last_name = payload.last_name
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@app.post("/users/me/change-password", tags=["users"])
+async def change_my_password(
+    payload: PasswordUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_db)
+):
+    # PasswordUpdate schema already checks:
+    # - new_password == confirm_new_password
+    # - new_password != current_password
+    if not current_user.verify_password(payload.current_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    current_user.password = User.hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}
+
+
 # ------------------------------------------------------------------------------
 # Calculations Endpoints (BREAD)
 # ------------------------------------------------------------------------------
-# Create (Add) Calculation – using CalculationBase so that 'user_id' from the client is ignored.
+
 @app.post(
     "/calculations",
     response_model=CalculationResponse,
@@ -162,12 +238,10 @@ def create_calculation(
 ):
     """
     Compute and persist a calculation.
-    
     The endpoint reads the calculation type and inputs from the request (ignoring any extra fields),
     computes the result using the appropriate operation, and assigns the authenticated user's ID.
     """
     try:
-        # Create the calculation using the factory method.
         new_calculation = Calculation.create(
             calculation_type=calculation_data.type,
             user_id=current_user.id,
@@ -175,7 +249,6 @@ def create_calculation(
         )
         new_calculation.result = new_calculation.get_result()
 
-        # Persist the calculation to the database.
         db.add(new_calculation)
         db.commit()
         db.refresh(new_calculation)
@@ -188,7 +261,6 @@ def create_calculation(
             detail=str(e)
         )
 
-# Browse / List Calculations (for the current user)
 @app.get("/calculations", response_model=List[CalculationResponse], tags=["calculations"])
 def list_calculations(
     current_user = Depends(get_current_active_user),
@@ -197,7 +269,6 @@ def list_calculations(
     calculations = db.query(Calculation).filter(Calculation.user_id == current_user.id).all()
     return calculations
 
-# Read / Retrieve a Specific Calculation by ID
 @app.get("/calculations/{calc_id}", response_model=CalculationResponse, tags=["calculations"])
 def get_calculation(
     calc_id: str,
@@ -216,7 +287,6 @@ def get_calculation(
         raise HTTPException(status_code=404, detail="Calculation not found.")
     return calculation
 
-# Edit / Update a Calculation
 @app.put("/calculations/{calc_id}", response_model=CalculationResponse, tags=["calculations"])
 def update_calculation(
     calc_id: str,
@@ -243,7 +313,6 @@ def update_calculation(
     db.refresh(calculation)
     return calculation
 
-# Delete a Calculation
 @app.delete("/calculations/{calc_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["calculations"])
 def delete_calculation(
     calc_id: str,
@@ -264,9 +333,10 @@ def delete_calculation(
     db.commit()
     return None
 
+
 # ------------------------------------------------------------------------------
 # Main Block to Run the Server
 # ------------------------------------------------------------------------------
+
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("app.main:app", host="127.0.0.1", port=8001, log_level="info")

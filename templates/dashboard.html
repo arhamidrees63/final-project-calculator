@@ -15,6 +15,12 @@
                 </div>
                 <div class="flex items-center">
                     <span id="userWelcome" class="text-gray-700 mr-4"></span>
+
+                    <!-- ✅ NEW: Profile button -->
+                    <a href="/profile" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 mr-3">
+                        Profile
+                    </a>
+
                     <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
                         Logout
                     </button>
@@ -49,7 +55,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Numbers (comma-separated)</label>
-                        <input type="text" id="calcInputs" name="inputs" placeholder="e.g. 5,10,15" 
+                        <input type="text" id="calcInputs" name="inputs" placeholder="e.g. 5,10,15"
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                     </div>
                 </div>
@@ -167,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!confirm('Are you sure you want to delete this calculation?')) {
                         return;
                     }
-                    
+
                     const calcId = e.target.dataset.id;
                     try {
                         const response = await fetch(`/calculations/${calcId}`, {
@@ -201,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle new calculation submission
     document.getElementById('calculationForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const inputs = document.getElementById('calcInputs').value
             .split(',')
             .map(num => parseFloat(num.trim()))

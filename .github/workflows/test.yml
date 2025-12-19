@@ -15,7 +15,7 @@ jobs:
         env:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: mytestdb  # <-- Dedicated test DB name
+          POSTGRES_DB: mytestdb
         ports:
           - 5432:5432
         options: >-
@@ -46,21 +46,23 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          playwright install  # if you use Playwright for e2e tests
+          playwright install
       
       - name: Run tests
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
         run: |
           source venv/bin/activate
-          
+
+          mkdir -p test-results
+
           # 1) Unit tests
-          pytest tests/unit/ --cov=src --junitxml=test-results/junit.xml
+          pytest tests/unit/ --cov=app --junitxml=test-results/junit.xml
           
           # 2) Integration tests
           pytest tests/integration/
           
-          # 3) E2E or other tests
+          # 3) E2E tests
           pytest tests/e2e/
 
   security:
@@ -74,7 +76,7 @@ jobs:
       
       - name: Run Trivy vulnerability scanner (non-blocking)
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true   # ✅ allows workflow to continue even if vulnerabilities found
+        continue-on-error: true
         with:
           image-ref: 'app:test'
           format: 'table'
