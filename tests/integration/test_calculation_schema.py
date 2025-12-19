@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 from uuid import uuid4
 from datetime import datetime
+
 from app.schemas.calculation import (
     CalculationCreate,
     CalculationUpdate,
@@ -28,7 +29,6 @@ def test_calculation_create_missing_type():
     }
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
-    # Look for a substring that indicates a missing required field.
     assert "required" in str(exc_info.value).lower()
 
 def test_calculation_create_missing_inputs():
@@ -51,21 +51,43 @@ def test_calculation_create_invalid_inputs():
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
     error_message = str(exc_info.value)
-    # Ensure that our custom error message is present (case-insensitive)
     assert "input should be a valid list" in error_message.lower(), error_message
 
 def test_calculation_create_unsupported_type():
     """Test CalculationCreate fails if an unsupported calculation type is provided."""
     data = {
         "type": "square_root",  # Unsupported type
-        "inputs": [25],
+        "inputs": [25, 2],
         "user_id": uuid4()
     }
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
     error_message = str(exc_info.value).lower()
-    # Check that the error message indicates the value is not permitted.
     assert "one of" in error_message or "not a valid" in error_message
+
+# ✅ NEW FEATURE TESTS (Exponentiation)
+def test_calculation_create_exponentiation_valid():
+    """Exponentiation should allow exactly 2 inputs: [base, exponent]."""
+    data = {
+        "type": "exponentiation",
+        "inputs": [2, 3],
+        "user_id": uuid4()
+    }
+    calc = CalculationCreate(**data)
+    assert calc.type == "exponentiation"
+    assert calc.inputs == [2, 3]
+
+def test_calculation_create_exponentiation_invalid_input_count():
+    """Exponentiation should fail if inputs are not exactly 2."""
+    data = {
+        "type": "exponentiation",
+        "inputs": [2, 3, 4],  # invalid count
+        "user_id": uuid4()
+    }
+    with pytest.raises(ValidationError) as exc_info:
+        CalculationCreate(**data)
+
+    assert "exactly two" in str(exc_info.value).lower() or "requires exactly" in str(exc_info.value).lower()
 
 def test_calculation_update_valid():
     """Test a valid partial update with CalculationUpdate."""
