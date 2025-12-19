@@ -8,68 +8,69 @@ from sqlalchemy.orm import relationship, declared_attr
 from sqlalchemy.ext.declarative import declared_attr
 from app.database import Base
 
+
 class AbstractCalculation:
     """Abstract base class for calculations"""
-    
+
     @declared_attr
     def __tablename__(cls):
-        return 'calculations'
+        return "calculations"
 
     @declared_attr
     def id(cls):
         return Column(
-            UUID(as_uuid=True), 
-            primary_key=True, 
+            UUID(as_uuid=True),
+            primary_key=True,
             default=uuid.uuid4,
-            nullable=False
+            nullable=False,
         )
 
     @declared_attr
     def user_id(cls):
         return Column(
-            UUID(as_uuid=True), 
-            ForeignKey('users.id', ondelete='CASCADE'),
+            UUID(as_uuid=True),
+            ForeignKey("users.id", ondelete="CASCADE"),
             nullable=False,
-            index=True
+            index=True,
         )
 
     @declared_attr
     def type(cls):
         return Column(
-            String(50), 
+            String(50),
             nullable=False,
-            index=True
+            index=True,
         )
 
     @declared_attr
     def inputs(cls):
         return Column(
-            JSON, 
-            nullable=False
+            JSON,
+            nullable=False,
         )
 
     @declared_attr
     def result(cls):
         return Column(
             Float,
-            nullable=True
+            nullable=True,
         )
 
     @declared_attr
     def created_at(cls):
         return Column(
-            DateTime, 
+            DateTime,
             default=datetime.utcnow,
-            nullable=False
+            nullable=False,
         )
 
     @declared_attr
     def updated_at(cls):
         return Column(
-            DateTime, 
+            DateTime,
             default=datetime.utcnow,
             onupdate=datetime.utcnow,
-            nullable=False
+            nullable=False,
         )
 
     @declared_attr
@@ -80,14 +81,18 @@ class AbstractCalculation:
     def create(cls, calculation_type: str, user_id: uuid.UUID, inputs: List[float]) -> "Calculation":
         """Factory method to create calculations"""
         calculation_classes = {
-            'addition': Addition,
-            'subtraction': Subtraction,
-            'multiplication': Multiplication,
-            'division': Division,
+            "addition": Addition,
+            "subtraction": Subtraction,
+            "multiplication": Multiplication,
+            "division": Division,
+            # ✅ NEW FEATURE
+            "exponentiation": Exponentiation,
         }
+
         calculation_class = calculation_classes.get(calculation_type.lower())
         if not calculation_class:
             raise ValueError(f"Unsupported calculation type: {calculation_type}")
+
         return calculation_class(user_id=user_id, inputs=inputs)
 
     def get_result(self) -> float:
@@ -97,13 +102,15 @@ class AbstractCalculation:
     def __repr__(self):
         return f"<Calculation(type={self.type}, inputs={self.inputs})>"
 
+
 class Calculation(Base, AbstractCalculation):
     """Base calculation model"""
     __mapper_args__ = {
         "polymorphic_on": "type",
         "polymorphic_identity": "calculation",
-        #"with_polymorphic": "*"
+        # "with_polymorphic": "*"
     }
+
 
 class Addition(Calculation):
     """Addition calculation"""
@@ -114,7 +121,8 @@ class Addition(Calculation):
             raise ValueError("Inputs must be a list of numbers.")
         if len(self.inputs) < 2:
             raise ValueError("Inputs must be a list with at least two numbers.")
-        return sum(self.inputs)
+        return float(sum(self.inputs))
+
 
 class Subtraction(Calculation):
     """Subtraction calculation"""
@@ -125,10 +133,11 @@ class Subtraction(Calculation):
             raise ValueError("Inputs must be a list of numbers.")
         if len(self.inputs) < 2:
             raise ValueError("Inputs must be a list with at least two numbers.")
-        result = self.inputs[0]
+        result = float(self.inputs[0])
         for value in self.inputs[1:]:
-            result -= value
-        return result
+            result -= float(value)
+        return float(result)
+
 
 class Multiplication(Calculation):
     """Multiplication calculation"""
@@ -139,10 +148,11 @@ class Multiplication(Calculation):
             raise ValueError("Inputs must be a list of numbers.")
         if len(self.inputs) < 2:
             raise ValueError("Inputs must be a list with at least two numbers.")
-        result = 1
+        result = 1.0
         for value in self.inputs:
-            result *= value
-        return result
+            result *= float(value)
+        return float(result)
+
 
 class Division(Calculation):
     """Division calculation"""
@@ -153,9 +163,28 @@ class Division(Calculation):
             raise ValueError("Inputs must be a list of numbers.")
         if len(self.inputs) < 2:
             raise ValueError("Inputs must be a list with at least two numbers.")
-        result = self.inputs[0]
+        result = float(self.inputs[0])
         for value in self.inputs[1:]:
-            if value == 0:
+            if float(value) == 0.0:
                 raise ValueError("Cannot divide by zero.")
-            result /= value
-        return result
+            result /= float(value)
+        return float(result)
+
+
+# ✅ NEW FEATURE: Exponentiation
+class Exponentiation(Calculation):
+    """Exponentiation calculation (base ^ exponent)"""
+    __mapper_args__ = {"polymorphic_identity": "exponentiation"}
+
+    def get_result(self) -> float:
+        if not isinstance(self.inputs, list):
+            raise ValueError("Inputs must be a list of numbers.")
+        # For exponentiation, enforce exactly 2 inputs: [base, exponent]
+        if len(self.inputs) != 2:
+            raise ValueError("Exponentiation requires exactly two numbers: [base, exponent].")
+
+        base = float(self.inputs[0])
+        exponent = float(self.inputs[1])
+
+        # Python supports negative / fractional exponents too
+        return float(base ** exponent)
