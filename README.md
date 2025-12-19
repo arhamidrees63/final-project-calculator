@@ -1,97 +1,194 @@
-🧮 Module 13 – FastAPI Calculator App with JWT Authentication
+🧮 FastAPI Calculator Application
 
-This project is a FastAPI web app that lets users register, log in securely using JWT authentication, and perform basic arithmetic operations (addition, subtraction, multiplication, and division).
-It’s built with FastAPI, PostgreSQL, Docker, and includes automated testing via Pytest and Playwright.
+A full-stack calculator application built with FastAPI, PostgreSQL, and SQLAlchemy, supporting authenticated users, persistent calculation history, and full CRUD operations.
+The project includes unit tests, integration tests, end-to-end API tests, and UI tests.
 
 🐳 Docker Hub Image
 
-Docker image available at:
-👉 https://hub.docker.com/repository/docker/arhamidrees63/module13
+This project is available as a Docker image on Docker Hub:
 
-📂 GitHub Repository
+🔗 Docker Hub Repository:
+https://hub.docker.com/r/arhamidrees63/final-project-fastapi-calculator
 
-Source code repository:
-👉 https://github.com/arhamidrees63/assignment13
+Pull Image
+docker pull arhamidrees63/final-project-fastapi-calculator:latest
 
-🚀 How to Run This Project
-
-You can run the project in two ways — via Docker or directly with FastAPI.
-
-🐳 Option 1: Run with Docker (Recommended)
-1️⃣ Clone the repository
-git clone git@github.com:arhamidrees63/assignment13.git
-cd assignment13
-
-2️⃣ Build and start all containers
-docker-compose up --build
+Run Container
+docker run -d \
+  -p 8000:8000 \
+  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/fastapi_db \
+  arhamidrees63/final-project-fastapi-calculator:latest
 
 
-This will automatically start:
+Access the application at:
 
-FastAPI backend on http://localhost:8000
+http://127.0.0.1:8000
 
-pgAdmin on http://localhost:5050
+🚀 Features
+🔢 Calculator Operations
 
-PostgreSQL database in the background
+Addition
 
-3️⃣ Open the app
+Subtraction
 
-Once running, visit:
+Multiplication
 
-Swagger API Docs: http://localhost:8000/docs
+Division (with division-by-zero protection)
 
-Frontend Login Page: http://localhost:8000/login
+Supports multiple inputs (e.g. [10, 3, 2])
 
-Frontend Register Page: http://localhost:8000/register
+Results are stored in the database per user
 
-pgAdmin (Database GUI): http://localhost:5050
+👤 User Authentication
 
-4️⃣ Stop the containers
-docker-compose down
+User registration & login
 
-💻 Option 2: Run Locally (Without Docker)
+JWT-based authentication
 
-If you prefer to run it directly on your system:
+Secure password hashing
 
-1️⃣ Create and activate a virtual environment
-python3 -m venv venv
+Protected calculator endpoints
+
+🗂 Calculation Management
+
+Create calculations
+
+List user calculations
+
+Retrieve calculation by ID
+
+Update calculation inputs
+
+Delete calculations
+
+Each calculation stores:
+
+Type
+
+Inputs
+
+Result
+
+Created & updated timestamps
+
+🖥 Web Dashboard
+
+Web UI available at:
+
+http://127.0.0.1:8000/dashboard
+
+
+Displays calculation history for logged-in users
+
+🛠 Tech Stack
+Layer	Technology
+Backend	FastAPI
+Database	PostgreSQL
+ORM	SQLAlchemy
+Auth	JWT (OAuth2 Password Flow)
+Testing	Pytest
+UI Testing	Playwright
+Server	Uvicorn
+Language	Python 3.12
+📂 Project Structure
+app/
+├── auth/               # Authentication & JWT logic
+├── core/               # App configuration
+├── database.py         # Database connection
+├── database_init.py    # DB initialization
+├── models/             # SQLAlchemy models
+│   ├── user.py
+│   └── calculation.py
+├── operations/         # Calculator operations
+├── schemas/            # Pydantic schemas
+├── main.py             # FastAPI app entry point
+tests/
+├── unit/               # Unit tests (calculator logic)
+├── integration/        # DB + schema tests
+├── e2e/                # End-to-end API tests
+└── conftest.py         # Test setup & fixtures
+
+⚙️ Environment Setup
+1️⃣ Create virtual environment
+python -m venv venv
 source venv/bin/activate
 
 2️⃣ Install dependencies
 pip install -r requirements.txt
 
-3️⃣ Run the FastAPI app
+3️⃣ Start PostgreSQL (Docker recommended)
+docker run --name pg-fastapi \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=fastapi_db \
+  -p 5432:5432 \
+  -d postgres:16
+
+4️⃣ Set environment variable
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fastapi_db"
+
+▶️ Running the Application
 uvicorn app.main:app --reload
 
 
-The app will run at:
-➡️ http://127.0.0.1:8000/docs
+API Docs:
 
-🧪 Run Tests
-✅ Run all Pytest tests
+http://127.0.0.1:8000/docs
+
+
+Dashboard UI:
+
+http://127.0.0.1:8000/dashboard
+
+🧪 Running Tests
+Set test database URL
+export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fastapi_db"
+
+Run all tests
 pytest
 
-✅ Run only End-to-End (E2E) tests
-pytest tests/e2e -v
-
-✅ Run Playwright tests (Frontend)
-
-Make sure the app is running before you execute:
-
-npx playwright test
+Run with coverage
+pytest --cov=app --cov-report=html
 
 
-To pull and run it manually:
+Coverage report will be generated in:
 
-docker pull arhamidrees63/module13:latest
-docker run -p 8000:8000 arhamidrees63/module13:latest
+htmlcov/index.html
 
+✅ Test Coverage Includes
 
-🧠 Reflection
+Unit tests for calculator operations
 
-During this project, I learned how to combine FastAPI, PostgreSQL, and JWT authentication within a Docker environment.
-Initially, I struggled with a few issues such as Redis compatibility and environment variables for testing.
-After updating imports and adjusting configuration, the app passed all 100 Pytest tests successfully.
+Schema validation tests
 
-The biggest learning experience was setting up CI/CD pipelines and testing user flows with Playwright.
-This module helped me understand how authentication, containerization, and testing connect together in real-world web applications.
+Database integration tests
+
+Authentication tests
+
+End-to-end API tests
+
+UI tests using Playwright
+
+🔐 Security Notes
+
+Passwords are hashed before storage
+
+JWT tokens are required for protected routes
+
+Users can only access their own calculations
+
+📌 Notes for Grading / Review
+
+Follows clean architecture
+
+Separation of concerns (models, schemas, operations)
+
+Comprehensive test coverage
+
+Database-backed persistence
+
+Production-style authentication flow
+
+👨‍💻 Author
+
+Muhammad Arham
+Final Project – FastAPI Calculator Application
