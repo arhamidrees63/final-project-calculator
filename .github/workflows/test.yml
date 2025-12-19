@@ -102,8 +102,7 @@ jobs:
         with:
           push: true
           tags: |
-            arhamidrees63/module13:latest
-            arhamidrees63/module13:${{ github.sha }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=registry,ref=arhamidrees63/module13:cache
-          cache-to: type=inline,mode=max
+            arhamidrees63/final-project-calculator:latest
+            arhamidrees63/final-project-calculator:${{ github.sha }}
+          cache-from: type=registry,ref=arhamidrees63/final-project-calculator:cache
+         cache-to: type=inline,mode=max
