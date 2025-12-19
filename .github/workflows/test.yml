@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:latest
@@ -25,19 +26,19 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v3
-      
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          
-      - uses: actions/cache@v3
+          python-version: "3.10"
+
+      - uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      
+
       - name: Install dependencies
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
@@ -47,62 +48,57 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           playwright install
-      
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/mytestdb
         run: |
           source venv/bin/activate
-
           mkdir -p test-results
-
-          # 1) Unit tests
           pytest tests/unit/ --cov=app --junitxml=test-results/junit.xml
-          
-          # 2) Integration tests
           pytest tests/integration/
-          
-          # 3) E2E tests
           pytest tests/e2e/
 
   security:
     needs: test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build image
         run: docker build -t app:test .
-      
+
       - name: Run Trivy vulnerability scanner (non-blocking)
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
         with:
-          image-ref: 'app:test'
-          format: 'table'
+          image-ref: app:test
+          format: table
           ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+          severity: CRITICAL,HIGH
 
   deploy:
     needs: security
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: docker/setup-buildx-action@v3
-      
+
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          
+
       - uses: docker/build-push-action@v5
         with:
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             arhamidrees63/final-project-calculator:latest
             arhamidrees63/final-project-calculator:${{ github.sha }}
           cache-from: type=registry,ref=arhamidrees63/final-project-calculator:cache
-         cache-to: type=inline,mode=max
+          cache-to: type=inline
